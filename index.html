@@ -38,7 +38,7 @@ main{padding-block:38px 55px!important}h1{font-size:clamp(2.25rem,6vw,3.7rem);li
 .row.soonest{outline:1px solid #91dfb4;outline-offset:-2px}
 .soonest-label{display:inline-block;margin-top:6px;padding:2px 7px;border-radius:5px;background:#244737;color:#c1f5d6;font-size:.82rem;font-weight:700}
 
-section{background:var(--panel);border:1px solid var(--edge);border-radius:12px}.controls{padding:16px;display:grid;grid-template-columns:1fr auto 1fr auto;align-items:end;gap:12px}.field label{display:block;color:var(--muted);font-size:.875rem;margin-bottom:4px}.field{min-width:0}.field select{width:100%;padding:8px 32px 8px 10px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23abc0cc' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}.swap{font-size:1.25rem;width:44px;padding:0}.small select{min-width:94px}
+section{background:var(--panel);border:1px solid var(--edge);border-radius:12px}.controls{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:12px}.field label{display:block;color:var(--muted);font-size:.875rem;margin-bottom:4px}.field{min-width:0}.field select{width:100%;padding:8px 32px 8px 10px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23abc0cc' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}.swap{font-size:1.25rem;width:44px;padding:0}.time-controls{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 12px}.time-controls select{min-width:94px}.departure-field select{min-width:128px}
 .board{margin-top:18px;overflow:hidden}.board-head{padding:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--edge)}h2{margin:0;font-size:1.15rem}.status{color:var(--muted);font-size:.875rem;margin:3px 0 0;overflow-wrap:anywhere}.refresh{white-space:nowrap}.refresh[aria-busy=true]{opacity:.72}.departures{list-style:none;margin:0;padding:0}.row{display:grid;grid-template-columns:86px 1fr auto;align-items:center;gap:16px;padding:13px 16px;min-height:76px}.row+.row{border-top:1px solid var(--edge)}.row:first-child{background:#1b2b36}
 .row.service-row{box-shadow:inset 4px 0 var(--service-color);background:color-mix(in srgb,var(--service-color) 5%,var(--panel))}
 .row.service-row:first-child{background:color-mix(in srgb,var(--service-color) 9%,var(--panel))}
@@ -51,7 +51,7 @@ section{background:var(--panel);border:1px solid var(--edge);border-radius:12px}
 .caltrain-tier[data-tier=Express]{color:#ff7784}
 .row.too-soon .type{border-color:#57636c;text-align:center}
 .too-soon .departure-source{display:block;font-size:.75rem}
-@media(max-width:600px){.wrap{padding-inline:15px}main{padding-top:28px!important}.controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:12px}.small{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:3px}.small select{width:auto}.small label{margin:0}.row{grid-template-columns:64px 1fr auto;gap:8px;padding-inline:12px}.board-head{padding-inline:12px}.wait{font-size:1.12rem}.type{padding-inline:5px}.clock{font-size:.8rem}}
+@media(max-width:600px){.wrap{padding-inline:15px}main{padding-top:28px!important}.controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:12px}.row{grid-template-columns:64px 1fr auto;gap:8px;padding-inline:12px}.board-head{padding-inline:12px}.wait{font-size:1.12rem}.type{padding-inline:5px}.clock{font-size:.8rem}}
 @media(max-width:350px){.clock{display:none}.row{grid-template-columns:59px 1fr}.type{grid-column:2;justify-self:start}}
 </style>
 </head>
@@ -77,7 +77,13 @@ section{background:var(--panel);border:1px solid var(--edge);border-radius:12px}
     <div class="field"><label for="origin">From</label><select id="origin"></select></div>
     <button class="swap" type="button" id="swap" aria-label="Swap stations" title="Swap stations">⇄</button>
     <div class="field"><label for="destination">To</label><select id="destination"></select></div>
-    <div class="field small"><label for="walk">Walk time</label><select id="walk"><option value="0">None</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select></div>
+    <div class="time-controls">
+      <div class="field departure-field">
+        <label for="departure">Departure time</label>
+        <select id="departure"><option value="0" selected>Now</option></select>
+      </div>
+      <div class="field"><label for="walk">Walk time</label><select id="walk"><option value="0">None</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="20">20 min</option><option value="30">30 min</option></select></div>
+    </div>
   </section>
   <section class="board" aria-labelledby="heading">
     <div class="board-head"><div><h2 id="heading">Next departures</h2><p class="status" id="status" role="status"></p></div><button class="refresh" id="refresh" type="button">Refresh</button></div>
@@ -102,7 +108,7 @@ const timeFormat = new Intl.DateTimeFormat('en-US', {timeZone:ZONE, hour:'numeri
 const numericTime = new Intl.DateTimeFormat('en-US', {timeZone:ZONE, year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
 const dateFormat = new Intl.DateTimeFormat('en-US', {timeZone:ZONE, weekday:'short', month:'short', day:'numeric'});
 const byId = id => document.getElementById(id);
-const origin = byId('origin'), destination = byId('destination'), walk = byId('walk');
+const origin = byId('origin'), destination = byId('destination'), walk = byId('walk'), departure = byId('departure');
 const board = byId('departures'), status = byId('status'), refreshButton = byId('refresh');
 const agencyButtons = [...document.querySelectorAll('[data-agency]')];
 const bartViewButtons = [...document.querySelectorAll('[data-bart-view]')];
@@ -196,6 +202,7 @@ for (const button of bartViewButtons) button.addEventListener('click', () => {
 });
 origin.addEventListener('change',currentSelection);
 destination.addEventListener('change',currentSelection);
+departure.addEventListener('change',() => load());
 walk.addEventListener('change',() => {
   sources[agency].walk = walk.value;
   save();
@@ -228,6 +235,28 @@ function pacificEpoch(day, minute) {
     guess += Math.floor(wanted/MS)*MS - local;
   }
   return guess;
+}
+let firstDepartureOption, departureMenuDay;
+function syncDepartureTimes(now) {
+  const interval = 15*MS;
+  const first = Math.floor(now/interval)*interval+interval;
+  const day = serviceDay(now).key;
+  if (first === firstDepartureOption && day === departureMenuDay) return;
+  firstDepartureOption = first;
+  departureMenuDay = day;
+  const selected = Number(departure.value);
+  const midnight = pacificEpoch(serviceDay(now,1),0);
+  const end = pacificEpoch(serviceDay(now,2),0);
+  const today = document.createElement('optgroup');
+  today.label = 'Today';
+  const tomorrow = document.createElement('optgroup');
+  tomorrow.label = 'Tomorrow';
+  for (let at=first;at<end;at+=interval) {
+    const group = at < midnight ? today : tomorrow;
+    group.append(new Option(timeFormat.format(at),String(at)));
+  }
+  departure.replaceChildren(new Option('Now','0'),...[today,tomorrow].filter(group => group.children.length));
+  departure.value = selected >= first && selected < end ? String(selected) : '0';
 }
 function serviceRuns(id, day) {
   const exception = data.exceptions[day.key]?.[id];
@@ -306,23 +335,24 @@ function bartSchedule(payload, from, to, day, now) {
       arrival:bartArrival(paths,from,to,at),arrivalKind:'estimated',live:false}];
   });
 }
-async function loadBart(from,to,signal) {
+async function loadBart(from,to,signal,after = 0) {
   const now = Date.now();
-  const day = serviceDay(now);
-  const realtime = await getJson(bartUrl('etd',{cmd:'etd',orig:from}),signal).then(p => bartLive(p,from,to,Date.now())).catch(() => []);
+  const startAt = Math.max(now,after);
+  const realtime = startAt > now+120*MS ? [] : await getJson(bartUrl('etd',{cmd:'etd',orig:from}),signal)
+    .then(p => bartLive(p,from,to,Date.now()).filter(row => row.at >= after)).catch(() => []);
   if (realtime.length >= DISPLAY_LIMIT) return {rows:realtime};
   if (signal.aborted) return {rows:[]};
   const loadDay = date => getJson(bartUrl('sched',{cmd:'stnsched',orig:from,date:[date.month,date.day,date.year].join('/')}),signal)
-      .then(p => bartSchedule(p,from,to,date,now));
+      .then(p => bartSchedule(p,from,to,date,startAt));
   try {
-    const serviceDate = parts(now).hour < 3 ? serviceDay(now,-1) : day;
-    const scheduled = await loadDay(serviceDate);
+    const dayOffset = parts(startAt).hour < 3 ? -1 : 0;
+    const scheduled = await loadDay(serviceDay(startAt,dayOffset));
     if (scheduled.length < DISPLAY_LIMIT && !signal.aborted) {
-      try {scheduled.push(...await loadDay(parts(now).hour < 3 ? day : serviceDay(now,1)))} catch {}
+      try {scheduled.push(...await loadDay(serviceDay(startAt,dayOffset+1)))} catch {}
     }
     // BART's estimates do not identify the scheduled trip. Use the timetable
     // after the prediction window to avoid listing the same train twice.
-    const lastLive = realtime.at(-1)?.at ?? now;
+    const lastLive = realtime.at(-1)?.at ?? -Infinity;
     return {rows:[...realtime,...scheduled.filter(row => row.at > lastLive)].sort((a,b) => a.at-b.at)};
   } catch {
     return {rows:realtime, message:realtime.length ? '' : 'BART departures are temporarily unavailable.'};
@@ -357,8 +387,8 @@ function bartTrips(payload,from,to,earliest) {
     return [{headsign:data.bartStations[to],at:first.at,arrival:last.arrival,arrivalKind:'scheduled',line:first.line,legs,live:false}];
   }).sort((a,b) => a.at-b.at || a.arrival-b.arrival);
 }
-async function loadBartPlannerTrips(from,to,signal) {
-  const now = Math.ceil(Date.now()/MS)*MS;
+async function loadBartPlannerTrips(from,to,signal,after) {
+  const startAt = Math.ceil(Math.max(Date.now(),after)/MS)*MS;
   const query = (date,time,earliest) => getJson(bartUrl('sched',{
     cmd:'depart',orig:from,dest:to,date:[date.month,date.day,date.year].join('/'),time,b:0,a:3
   }),signal).then(payload => bartTrips(payload,from,to,earliest));
@@ -367,7 +397,7 @@ async function loadBartPlannerTrips(from,to,signal) {
     const rows = await query(serviceDay(earliest),time,earliest);
     return rows.length ? rows : query(serviceDay(earliest,1),'12:00 am',earliest);
   };
-  const rows = await upcoming(now);
+  const rows = await upcoming(startAt);
   if (!rows.length) return {rows};
   const end = rows[0].at + 120*MS;
   for (let page=1;page<8;page++) {
@@ -385,36 +415,37 @@ async function loadBartPlannerTrips(from,to,signal) {
 let bartOptionsResources;
 function loadBartOptionsResources() {
   return bartOptionsResources ??= Promise.all([
-    import('./bart-options.js?v=3'),
+    import('./bart-options.js?v=4'),
     fetch('./bart-timetable.json').then(response => {
       if (!response.ok) throw new Error('BART timetable unavailable');
       return response.json();
     })
   ]).catch(error => {bartOptionsResources = undefined; throw error;});
 }
-async function loadBartTrips(from,to,signal) {
+async function loadBartTrips(from,to,signal,after = 0) {
   try {
     const [resources, live] = await Promise.all([
       loadBartOptionsResources(),
-      getJson(bartUrl('etd',{cmd:'etd',orig:'ALL'}),signal).catch(() => null)
+      after > Date.now()+120*MS ? null : getJson(bartUrl('etd',{cmd:'etd',orig:'ALL'}),signal).catch(() => null)
     ]);
     if (signal.aborted) return {rows:[]};
     const [{planBartDepartures,bartDeparturePredictions},timetable] = resources;
     const now = Date.now();
-    const today = serviceDay(now);
+    const startAt = Math.max(now,after);
+    const selectedDay = serviceDay(startAt);
     const first = Object.values(timetable.services).reduce((min,cal) => cal[0] < min ? cal[0] : min, '99999999');
     const last = Object.values(timetable.services).reduce((max,cal) => cal[1] > max ? cal[1] : max, '');
-    if (today.key >= first && today.key <= last) {
+    if (selectedDay.key >= first && selectedDay.key <= last) {
       const days = [-1,0,1].map(offset => {
-        const day = serviceDay(now,offset);
+        const day = serviceDay(startAt,offset);
         return {...day,zero:pacificEpoch(day,0)};
       });
       const predictions = bartDeparturePredictions(live,now);
-      const rows = planBartDepartures(timetable,days,data.bartStations,from,to,now,predictions);
+      const rows = planBartDepartures(timetable,days,data.bartStations,from,to,now,predictions,startAt);
       if (rows.length) return {rows,windowed:true};
     }
   } catch {}
-  return loadBartPlannerTrips(from,to,signal);
+  return loadBartPlannerTrips(from,to,signal,after);
 }
 function bartLineName(line) {
   return Object.hasOwn(lineColors,line) ? line[0] + line.slice(1).toLowerCase() + ' Line' : '';
@@ -488,12 +519,14 @@ function caltrainPredictions(payload,now) {
   }
   return updates;
 }
-async function loadCaltrain(from,to,signal) {
+async function loadCaltrain(from,to,signal,after = 0) {
   const now = Date.now();
-  const scheduled = caltrainSchedule(from,to,now);
+  const startAt = Math.max(now,after);
+  const scheduled = caltrainSchedule(from,to,startAt);
   const predictions = station => getJson('https://www.caltrain.com/gtfs/stops/' + encodeURIComponent(station) + '/predictions',signal)
     .then(payload => caltrainPredictions(payload,Date.now())).catch(() => new Map());
-  const [updates,destinationUpdates] = await Promise.all([predictions(from),to ? predictions(to) : new Map()]);
+  const [updates,destinationUpdates] = startAt > now+4*60*MS ? [new Map(),new Map()] :
+    await Promise.all([predictions(from),to ? predictions(to) : new Map()]);
   const rows = scheduled.flatMap(row => {
     const update = updates.get(row.id);
     if (!update || (!update.canceled && Math.abs(row.at-update.at) > 2*60*MS) || row.at > now+4*60*MS) return [row];
@@ -519,8 +552,8 @@ async function loadCaltrain(from,to,signal) {
       return [{...row,arrival:update.arrival,arrivalKind:'live'}];
     }
     return [row];
-  }).filter(row => row.at >= Date.now() - (row.live ? MS : 0)).sort((a,b) => a.at-b.at);
-  const message = !upcoming.length && serviceDay(now).key > data.end ? 'The saved Caltrain timetable has expired. Open Caltrain’s site for current times.' : '';
+  }).filter(row => row.at >= Math.max(after,Date.now() - (row.live ? MS : 0))).sort((a,b) => a.at-b.at);
+  const message = !upcoming.length && serviceDay(startAt).key > data.end ? 'The saved Caltrain timetable has expired. Open Caltrain’s site for current times.' : '';
   return {rows:upcoming,message};
 }
 function timeUntil(at,now) {
@@ -542,7 +575,8 @@ function render() {
   if (!current) return;
   const walkMinutes = Number(config.walk);
   const readyAt = now + walkMinutes*MS;
-  const upcoming = current.rows.filter(row => row.at >= now - (row.live ? MS : 0));
+  const after = Number(departure.value) || 0;
+  const upcoming = current.rows.filter(row => row.at >= Math.max(after,now - (row.live ? MS : 0)));
   const soonest = config.destination ? upcoming.reduce((best,row) => {
     if ((walkMinutes > 0 && row.at < readyAt) || !Number.isFinite(row.arrival) || row.arrival < row.at) return best;
     return !best || row.arrival < best.arrival ? row : best;
@@ -553,6 +587,7 @@ function render() {
     (rows.some(row => row.live) ? 'Live predictions' + (rows.some(row => !row.live || row.mixed) ? ' and scheduled times' : '') :
       rows.length ? 'Published schedule' : 'No upcoming departures') + ' · Checked ' + timeFormat.format(current.checked) + ' PT' :
     'Checking ' + config.name + '…');
+  if (after) status.textContent += ' · Departing from ' + dateFormat.format(after) + ' at ' + timeFormat.format(after) + ' PT';
   if (rows.length && current.windowed) status.textContent += ' · 2-hour departure window';
   if (rows.length && !config.destination) status.textContent += ' · Select a destination to compare arrivals';
   if (!rows.length) {
@@ -570,12 +605,12 @@ function render() {
     li.className = tooSoon ? 'row too-soon' : row === soonest ? 'row soonest' : 'row';
     const time = document.createElement('div');
     time.className = 'wait';
-    time.textContent = timeUntil(row.at,now);
+    time.textContent = after ? timeFormat.format(row.at) : timeUntil(row.at,now);
     const localTime = document.createElement('span');
     localTime.className = 'meta';
     localTime.textContent = serviceDay(row.at).key === serviceDay(now).key ? timeFormat.format(row.at) : dateFormat.format(row.at) + ' · ' + timeFormat.format(row.at);
-    if (row.at - now < 120*MS || serviceDay(row.at).key !== serviceDay(now).key) {
-      if (row.at - now >= 120*MS) localTime.textContent = dateFormat.format(row.at);
+    if ((!after && row.at-now < 120*MS) || serviceDay(row.at).key !== serviceDay(now).key) {
+      if (after || row.at - now >= 120*MS) localTime.textContent = dateFormat.format(row.at);
       time.append(localTime);
     }
     const information = document.createElement('div');
@@ -634,6 +669,7 @@ function render() {
   }));
 }
 async function load(keep = false) {
+  syncDepartureTimes(Date.now());
   request?.abort();
   const controller = new AbortController();
   request = controller;
@@ -643,8 +679,9 @@ async function load(keep = false) {
   const {origin,destination} = sources[agency];
   const allTrains = showAllBartTrains();
   try {
-    const result = allTrains ? await loadBartTrips(origin,destination,controller.signal) :
-      await (agency === 'bart' ? loadBart : loadCaltrain)(origin,destination,controller.signal);
+    const after = Number(departure.value) || 0;
+    const result = allTrains ? await loadBartTrips(origin,destination,controller.signal,after) :
+      await (agency === 'bart' ? loadBart : loadCaltrain)(origin,destination,controller.signal,after);
     if (!controller.signal.aborted) current = {...result,checked:Date.now()};
   } catch {
     if (!controller.signal.aborted) current = {rows:[],checked:Date.now(),message:allTrains ? 'BART trip options are temporarily unavailable.' : 'Departure times are temporarily unavailable.'};

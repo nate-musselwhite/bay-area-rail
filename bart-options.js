@@ -148,7 +148,7 @@ function makeLeg(board,end,stations) {
     delay:from.liveDeparture ? from.prediction.delay : undefined};
 }
 
-export function planBartDepartures(timetable,days,stations,from,to,now,predictions = []) {
+export function planBartDepartures(timetable,days,stations,from,to,now,predictions = [],startAt = now) {
   const boards = makeBoardings(timetable,days,now,predictions);
   const firstBoards = boards.get(from) || [];
   const direct = new Map();
@@ -178,7 +178,7 @@ export function planBartDepartures(timetable,days,stations,from,to,now,predictio
           if (next.trip === board.trip || next.at < stop.arrival + transferTime(timetable,{trip:board.trip,index:end},next)) continue;
           // Offer the onward train on its own when it can be boarded at the chosen origin.
           const boardsAtOrigin = next.trip.stops.slice(0,next.index).some(call =>
-            call.station === from && call.pickup && call.departure >= now);
+            call.station === from && call.pickup && call.departure >= startAt);
           if (boardsAtOrigin) continue;
           const rest = search(next,remaining-1,occupied,arrivalLimit);
           if (!rest) continue;
@@ -192,8 +192,9 @@ export function planBartDepartures(timetable,days,stations,from,to,now,predictio
   }
 
   const rows = [];
-  for (const first of firstBoards) {
-    if (rows.length && first.at >= Math.max(now,rows[0].at)+DEPARTURE_WINDOW) break;
+  for (let i=firstAtOrAfter(firstBoards,startAt);i<firstBoards.length;i++) {
+    const first = firstBoards[i];
+    if (rows.length && first.at >= rows[0].at+DEPARTURE_WINDOW) break;
     // One row per first train. Prefer the quickest onward ride and avoid loops.
     let legs = search(first,0,new Set(),Infinity);
     if (!legs) {

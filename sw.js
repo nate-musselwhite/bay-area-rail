@@ -3,8 +3,8 @@ const scope = self.registration.scope;
 const base = new URL(scope);
 const shell = new URL('./',scope).href;
 const cachePrefix = 'bay-area-rail-' + base.pathname + '-';
-const cacheName = cachePrefix + 'v3';
-const assets = ['./manifest.webmanifest','./icons/rail-180.png','./icons/rail-192.png','./icons/rail-512.png','./bart-options.js?v=3','./bart-timetable.json']
+const cacheName = cachePrefix + 'v4';
+const assets = ['./manifest.webmanifest','./icons/rail-180.png','./icons/rail-192.png','./icons/rail-512.png','./bart-options.js?v=4','./bart-timetable.json']
   .map(path => new URL(path,scope).href);
 
 self.addEventListener('install', event => {
