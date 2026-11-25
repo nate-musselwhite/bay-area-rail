@@ -385,7 +385,7 @@ async function loadBartPlannerTrips(from,to,signal) {
 let bartOptionsResources;
 function loadBartOptionsResources() {
   return bartOptionsResources ??= Promise.all([
-    import('./bart-options.js'),
+    import('./bart-options.js?v=3'),
     fetch('./bart-timetable.json').then(response => {
       if (!response.ok) throw new Error('BART timetable unavailable');
       return response.json();
@@ -393,10 +393,14 @@ function loadBartOptionsResources() {
   ]).catch(error => {bartOptionsResources = undefined; throw error;});
 }
 async function loadBartTrips(from,to,signal) {
-  const now = Date.now();
   try {
-    const [{planBartDepartures},timetable] = await loadBartOptionsResources();
+    const [resources, live] = await Promise.all([
+      loadBartOptionsResources(),
+      getJson(bartUrl('etd',{cmd:'etd',orig:'ALL'}),signal).catch(() => null)
+    ]);
     if (signal.aborted) return {rows:[]};
+    const [{planBartDepartures,bartDeparturePredictions},timetable] = resources;
+    const now = Date.now();
     const today = serviceDay(now);
     const first = Object.values(timetable.services).reduce((min,cal) => cal[0] < min ? cal[0] : min, '99999999');
     const last = Object.values(timetable.services).reduce((max,cal) => cal[1] > max ? cal[1] : max, '');
@@ -405,7 +409,8 @@ async function loadBartTrips(from,to,signal) {
         const day = serviceDay(now,offset);
         return {...day,zero:pacificEpoch(day,0)};
       });
-      const rows = planBartDepartures(timetable,days,data.bartStations,from,to,now);
+      const predictions = bartDeparturePredictions(live,now);
+      const rows = planBartDepartures(timetable,days,data.bartStations,from,to,now,predictions);
       if (rows.length) return {rows,windowed:true};
     }
   } catch {}
@@ -427,6 +432,11 @@ function appendBartTrip(container,row) {
     if (leg.headsign) step.append(' toward ' + leg.headsign);
     if (index) step.append(' · ' + timeFormat.format(leg.at));
     if (leg.platform) step.append(' · Platform ' + leg.platform);
+    if (row.live && leg.departureKind) {
+      const timing = {live:'Live departure',estimated:'Estimated departure',scheduled:'Scheduled departure'};
+      step.append(' · ' + timing[leg.departureKind]);
+      if (leg.delay >= 60) step.append(' · ' + Math.round(leg.delay/60) + ' min delay');
+    }
     container.append(step);
   }
 }
@@ -540,7 +550,7 @@ function render() {
   const rows = showAllBartTrains() ? upcoming.slice() : upcoming.slice(0,DISPLAY_LIMIT);
   if (soonest && !rows.includes(soonest)) rows[rows.length-1] = soonest;
   status.textContent = current.message || (current.checked ?
-    (rows.some(row => row.live) ? 'Live predictions' + (rows.some(row => !row.live) ? ' and scheduled times' : '') :
+    (rows.some(row => row.live) ? 'Live predictions' + (rows.some(row => !row.live || row.mixed) ? ' and scheduled times' : '') :
       rows.length ? 'Published schedule' : 'No upcoming departures') + ' · Checked ' + timeFormat.format(current.checked) + ' PT' :
     'Checking ' + config.name + '…');
   if (rows.length && current.windowed) status.textContent += ' · 2-hour departure window';
@@ -610,7 +620,7 @@ function render() {
       information.append(best);
     }
     const badge = document.createElement('span');
-    const source = row.live ? 'Live' : 'Scheduled';
+    const source = row.live ? (row.mixed ? 'Live + schedule' : 'Live') : 'Scheduled';
     badge.className = row.live && !tooSoon ? 'type live' : 'type';
     badge.textContent = tooSoon ? 'Too soon' : source;
     if (tooSoon) {
