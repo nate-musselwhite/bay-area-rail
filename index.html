@@ -44,7 +44,11 @@ section{background:var(--panel);border:1px solid var(--edge);border-radius:12px}
 .row.service-row:first-child{background:color-mix(in srgb,var(--service-color) 9%,var(--panel))}
 .service-label{color:var(--service-color,var(--muted));font-weight:680}.wait{font-size:1.3rem;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap}.wait small{font-size:.875rem}.meta{display:block;color:var(--muted);font-size:.875rem;line-height:1.35;margin-top:4px}.destination{font-weight:680;overflow-wrap:anywhere}.type{font-size:.82rem;border-radius:5px;border:1px solid var(--edge);padding:2px 7px;color:var(--muted);white-space:nowrap}.type.live{color:var(--green);border-color:#406953}.empty{padding:24px 16px;color:var(--muted)}.outside{display:flex;flex-wrap:wrap;gap:10px 20px;margin-top:18px;font-size:.875rem}
 .row.too-soon,.row.too-soon:first-child{color:#a6b0b8;background:#19232b;box-shadow:inset 4px 0 #65727c}
-.row.too-soon .meta,.row.too-soon .service-label,.row.too-soon .type{color:inherit}
+.row.too-soon .meta,.row.too-soon .service-label:not(.caltrain-tier),.row.too-soon .type{color:inherit}
+.caltrain-tier{display:inline-block;padding:1px 6px;border:1px solid currentColor;border-radius:4px;font-size:.82rem}
+.caltrain-tier[data-tier=Local]{color:#c3cdd4}
+.caltrain-tier[data-tier=Limited]{color:#a4d9f5}
+.caltrain-tier[data-tier=Express]{color:#ff7784}
 .row.too-soon .type{border-color:#57636c;text-align:center}
 .too-soon .departure-source{display:block;font-size:.75rem}
 @media(max-width:600px){.wrap{padding-inline:15px}main{padding-top:28px!important}.controls{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;padding:12px}.small{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-top:3px}.small select{width:auto}.small label{margin:0}.row{grid-template-columns:64px 1fr auto;gap:8px;padding-inline:12px}.board-head{padding-inline:12px}.wait{font-size:1.12rem}.type{padding-inline:5px}.clock{font-size:.8rem}}
@@ -89,8 +93,8 @@ const ZONE = 'America/Los_Angeles';
 const MS = 60000;
 const DISPLAY_LIMIT = 10;
 const sources = {
-  bart: {stations: data.bartStations, origin: 'EMBR', destination: 'DALY', walk: '0', name: 'BART', url: 'https://www.bart.gov/schedules', planner: 'https://www.bart.gov/planner'},
-  ct: {stations: data.ctStations, origin: 'san_francisco', destination: 'san_mateo', walk: '0', name: 'Caltrain', url: 'https://www.caltrain.com/status', planner: ''}
+  bart: {stations: data.bartStations, origin: 'EMBR', destination: 'BERY', walk: '0', name: 'BART', url: 'https://www.bart.gov/schedules', planner: 'https://www.bart.gov/planner'},
+  ct: {stations: data.ctStations, origin: 'palo_alto', destination: 'sj_diridon', walk: '0', name: 'Caltrain', url: 'https://www.caltrain.com/status', planner: ''}
 };
 const lineColors = {GREEN:'#77dd93', RED:'#ff808a', BLUE:'#79d3ff', YELLOW:'#ffe37d', ORANGE:'#ffb87a', GREY:'#c3cdd4'};
 const caltrainColors = {Express:'#ff7784', Local:'#c3cdd4', Limited:'#a4d9f5'};
@@ -116,8 +120,13 @@ let bartView = saved.bartView === 'all' || (saved.bartView === undefined && save
 if (Object.hasOwn(sources, saved.agency)) agency = saved.agency;
 for (const [key, config] of Object.entries(sources)) {
   const previous = saved[key] || {};
-  if (Object.hasOwn(config.stations, previous.origin)) config.origin = previous.origin;
-  if ((key === 'ct' && previous.destination === '') || Object.hasOwn(config.stations, previous.destination)) config.destination = previous.destination;
+  const usedOldDefault = !saved.routeDefaultsUpdated && (key === 'bart'
+    ? previous.origin === 'EMBR' && previous.destination === 'DALY'
+    : previous.origin === 'san_francisco' && previous.destination === 'san_mateo');
+  if (!usedOldDefault) {
+    if (Object.hasOwn(config.stations,previous.origin)) config.origin = previous.origin;
+    if ((key === 'ct' && previous.destination === '') || Object.hasOwn(config.stations,previous.destination)) config.destination = previous.destination;
+  }
   if (key === 'bart' && config.destination === config.origin) config.destination = config.origin === 'BERY' ? 'EMBR' : 'BERY';
   if ([...walk.options].some(option => option.value === previous.walk)) config.walk = previous.walk;
 }
@@ -134,7 +143,7 @@ if (Object.hasOwn(sources,linkedAgency)) {
 }
 function save() {
   const selections = Object.fromEntries(Object.entries(sources).map(([key, {origin, destination, walk}]) => [key, {origin, destination, walk}]));
-  storage({agency, bartView, ...selections});
+  storage({agency,bartView,routeDefaultsUpdated:true,...selections});
 }
 function showAllBartTrains() {
   return agency === 'bart' && bartView === 'all';
@@ -190,8 +199,7 @@ destination.addEventListener('change',currentSelection);
 walk.addEventListener('change',() => {
   sources[agency].walk = walk.value;
   save();
-  if (showAllBartTrains()) load(true);
-  else render();
+  render();
 });
 byId('swap').addEventListener('click',() => {
   const config = sources[agency];
@@ -349,9 +357,8 @@ function bartTrips(payload,from,to,earliest) {
     return [{headsign:data.bartStations[to],at:first.at,arrival:last.arrival,arrivalKind:'scheduled',line:first.line,legs,live:false}];
   }).sort((a,b) => a.at-b.at || a.arrival-b.arrival);
 }
-async function loadBartTrips(from,to,walkMinutes,signal) {
+async function loadBartPlannerTrips(from,to,signal) {
   const now = Math.ceil(Date.now()/MS)*MS;
-  const readyAt = now + Number(walkMinutes)*MS;
   const query = (date,time,earliest) => getJson(bartUrl('sched',{
     cmd:'depart',orig:from,dest:to,date:[date.month,date.day,date.year].join('/'),time,b:0,a:3
   }),signal).then(payload => bartTrips(payload,from,to,earliest));
@@ -361,14 +368,48 @@ async function loadBartTrips(from,to,walkMinutes,signal) {
     return rows.length ? rows : query(serviceDay(earliest,1),'12:00 am',earliest);
   };
   const rows = await upcoming(now);
-  if (!rows.some(row => row.at < readyAt)) return {rows};
-
-  // BART returns at most three trips per request. Look beyond the walk window
-  // as well so early departures cannot crowd out the next catchable trips.
-  const later = await upcoming(readyAt).catch(() => []);
-  const key = row => JSON.stringify(row.legs.map(leg => [leg.from,leg.to,leg.line,leg.at,leg.arrival]));
-  const trips = new Map([...rows,...later].map(row => [key(row),row]));
-  return {rows:[...trips.values()].sort((a,b) => a.at-b.at || a.arrival-b.arrival)};
+  if (!rows.length) return {rows};
+  const end = rows[0].at + 120*MS;
+  for (let page=1;page<8;page++) {
+    const cursor = rows.at(-1).at + MS;
+    if (cursor >= end || signal.aborted) break;
+    const day = serviceDay(cursor);
+    const time = timeFormat.format(cursor).replace(/\s+/g,' ').toLowerCase();
+    const next = await query(day,time,cursor).catch(() => []);
+    const inWindow = next.filter(row => row.at < end);
+    if (!inWindow.length) break;
+    rows.push(...inWindow);
+  }
+  return {rows,windowed:true};
+}
+let bartOptionsResources;
+function loadBartOptionsResources() {
+  return bartOptionsResources ??= Promise.all([
+    import('./bart-options.js'),
+    fetch('./bart-timetable.json').then(response => {
+      if (!response.ok) throw new Error('BART timetable unavailable');
+      return response.json();
+    })
+  ]).catch(error => {bartOptionsResources = undefined; throw error;});
+}
+async function loadBartTrips(from,to,signal) {
+  const now = Date.now();
+  try {
+    const [{planBartDepartures},timetable] = await loadBartOptionsResources();
+    if (signal.aborted) return {rows:[]};
+    const today = serviceDay(now);
+    const first = Object.values(timetable.services).reduce((min,cal) => cal[0] < min ? cal[0] : min, '99999999');
+    const last = Object.values(timetable.services).reduce((max,cal) => cal[1] > max ? cal[1] : max, '');
+    if (today.key >= first && today.key <= last) {
+      const days = [-1,0,1].map(offset => {
+        const day = serviceDay(now,offset);
+        return {...day,zero:pacificEpoch(day,0)};
+      });
+      const rows = planBartDepartures(timetable,days,data.bartStations,from,to,now);
+      if (rows.length) return {rows,windowed:true};
+    }
+  } catch {}
+  return loadBartPlannerTrips(from,to,signal);
 }
 function bartLineName(line) {
   return Object.hasOwn(lineColors,line) ? line[0] + line.slice(1).toLowerCase() + ' Line' : '';
@@ -393,8 +434,15 @@ function caltrainRide(calls,from,to) {
   const start = calls.findIndex(call => call[0] === from && call[3]);
   if (start < 0) return null;
   const downstream = calls.slice(start+1);
-  const end = to ? downstream.find(call => call[0] === to && call[4]) : downstream.findLast(call => call[4]);
-  return end ? {departure:calls[start][1],arrival:end[2],destination:end[0]} : null;
+  const terminal = downstream.findLast(call => call[4]);
+  const end = to ? downstream.find(call => call[0] === to && call[4]) : terminal;
+  return end ? {departure:calls[start][1],arrival:end[2],destination:end[0],terminal:terminal[0]} : null;
+}
+function caltrainTier(service,number) {
+  const category = String(service ?? '').match(/\b(express|limited|local)\b/i)?.[1]?.toLowerCase();
+  if (category) return category[0].toUpperCase() + category.slice(1);
+  const series = String(number ?? '').match(/\b([1456])\d{2}\b/)?.[1];
+  return ({1:'Local',4:'Limited',5:'Express',6:'Local'})[series] || service || '';
 }
 function caltrainSchedule(from,to,now) {
   const rows = [];
@@ -407,7 +455,7 @@ function caltrainSchedule(from,to,now) {
       if (!ride) continue;
       const at = pacificEpoch(day,ride.departure);
       if (at < now-2*60*MS) continue;
-      rows.push({id,at,headsign,tier,detail:'Train ' + number,arrival:pacificEpoch(day,ride.arrival),
+      rows.push({id,at,headsign,tier:caltrainTier(tier,number),terminal:ride.terminal,detail:'Train ' + number,arrival:pacificEpoch(day,ride.arrival),
         arrivalKind:'scheduled',arrivalStation:ride.destination,live:false});
     }
   }
@@ -449,8 +497,8 @@ async function loadCaltrain(from,to,signal) {
     if ((trip && !ride) || (!trip && to)) continue;
     const headsign = trip?.[2] || ({0:'Northbound',1:'Southbound'}[update.direction] ?? 'Caltrain');
     const detail = trip ? 'Train ' + trip[1] : /^\d+$/.test(id) ? 'Train ' + id : '';
-    const tier = trip?.[3] || String(update.route ?? '').match(/^(Express|Local|Limited)\b/)?.[1];
-    rows.push({id,headsign,detail,tier,at:update.at,arrival:ride ? update.at + (ride.arrival-ride.departure)*MS : undefined,
+    const tier = caltrainTier(trip?.[3] || update.route,trip?.[1] || id);
+    rows.push({id,headsign,detail,tier,terminal:ride?.terminal,at:update.at,arrival:ride ? update.at + (ride.arrival-ride.departure)*MS : undefined,
       arrivalKind:'estimated',arrivalStation:ride?.destination,live:true});
   }
   const upcoming = rows.flatMap(row => {
@@ -489,12 +537,13 @@ function render() {
     if ((walkMinutes > 0 && row.at < readyAt) || !Number.isFinite(row.arrival) || row.arrival < row.at) return best;
     return !best || row.arrival < best.arrival ? row : best;
   },null) : null;
-  const rows = upcoming.slice(0,DISPLAY_LIMIT);
+  const rows = showAllBartTrains() ? upcoming.slice() : upcoming.slice(0,DISPLAY_LIMIT);
   if (soonest && !rows.includes(soonest)) rows[rows.length-1] = soonest;
   status.textContent = current.message || (current.checked ?
     (rows.some(row => row.live) ? 'Live predictions' + (rows.some(row => !row.live) ? ' and scheduled times' : '') :
       rows.length ? 'Published schedule' : 'No upcoming departures') + ' · Checked ' + timeFormat.format(current.checked) + ' PT' :
     'Checking ' + config.name + '…');
+  if (rows.length && current.windowed) status.textContent += ' · 2-hour departure window';
   if (rows.length && !config.destination) status.textContent += ' · Select a destination to compare arrivals';
   if (!rows.length) {
     const empty = document.createElement('li');
@@ -522,7 +571,7 @@ function render() {
     const information = document.createElement('div');
     const name = document.createElement('div');
     name.className = 'destination';
-    name.textContent = row.headsign || 'Train';
+    name.textContent = agency === 'ct' && config.destination ? config.stations[config.destination] : row.headsign || 'Train';
     const detail = document.createElement('span');
     detail.className = 'meta';
     const lineColor = Object.hasOwn(lineColors,row.line) ? lineColors[row.line] : '';
@@ -539,11 +588,15 @@ function render() {
       const serviceName = row.tier || bartLineName(row.line);
       if (serviceName) {
         const label = document.createElement('span');
-        label.className = 'service-label';
+        label.className = tierColor ? 'service-label caltrain-tier' : 'service-label';
+        if (tierColor) label.setAttribute('data-tier',row.tier);
         label.textContent = serviceName;
         detail.append(label);
       }
       if (row.detail) detail.append(serviceName ? ' · ' + row.detail : row.detail);
+      if (agency === 'ct' && config.destination && row.terminal && row.terminal !== config.destination) {
+        detail.append(' · Toward ' + (config.stations[row.terminal] || row.headsign));
+      }
       information.append(detail);
     }
     const arrival = document.createElement('div');
@@ -577,10 +630,10 @@ async function load(keep = false) {
   if (!keep) current = {rows:[]};
   render();
   refreshButton.setAttribute('aria-busy','true');
-  const {origin, destination, walk} = sources[agency];
+  const {origin,destination} = sources[agency];
   const allTrains = showAllBartTrains();
   try {
-    const result = allTrains ? await loadBartTrips(origin,destination,walk,controller.signal) :
+    const result = allTrains ? await loadBartTrips(origin,destination,controller.signal) :
       await (agency === 'bart' ? loadBart : loadCaltrain)(origin,destination,controller.signal);
     if (!controller.signal.aborted) current = {...result,checked:Date.now()};
   } catch {
